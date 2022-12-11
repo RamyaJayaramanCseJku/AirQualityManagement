@@ -1,0 +1,63 @@
+version: '3.8'
+services:
+
+  airquality_api:
+    container_name: airquality_api
+    build:
+      context: .
+      dockerfile: ./AirQuality/Dockerfile
+    networks:
+      - db_network
+    command: uvicorn main:app --host 0.0.0.0 --port 8002
+    ports:
+      - 8080:8002
+      - 1883:1883
+    depends_on:
+      - timeScaleDatabase
+    volumes:
+      - ./AirQuality/api/:/app/
+    environment:
+      - TZ=Europe/Paris
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:9.0.6
+    ports:
+      - 3001:3000
+    networks:
+      - db_network
+
+  timeScaleDatabase:
+    container_name: timeScaleDatabase
+    image: timescale/timescaledb-ha:pg14-latest
+    restart: always
+    networks:
+      - db_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/postgres_data
+      - ./Database_Schema.sql:/docker-entrypoint-initdb.d/Database_Schema.sql
+    environment:
+      - PGDATA=/var/lib/postgresql/data/timescale/
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=air_quality
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=pgadmin4@pgadmin.org
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    networks:
+      - db_network
+    ports:
+      - 5055:80
+    depends_on:
+      - timeScaleDatabase
+
+volumes:
+  postgres_data:
+  
+networks:
+  db_network:
+    driver: bridge
